@@ -14,6 +14,8 @@ This folder contains separate standalone scraping scripts.
   Naukri scraper with access-denied detection.
 - `osm_scraper.py`
   OSM-based alternative scraper.
+- `website_crawler_scraper.py`
+  Internal-route website crawler for public emails, phone numbers, page metadata, and keywords.
 
 ## Requirements
 
@@ -26,6 +28,14 @@ pip install -r requirements_free.txt
 playwright install chromium
 ```
 
+Optional Gemini-powered query generation:
+
+1. Copy `.env.example` to `.env`
+2. Set `GEMINI_API_KEY`
+3. Run the Indeed Brave script normally
+
+When `GEMINI_API_KEY` or `GOOGLE_API_KEY` is present, `indeed_brave_profile.py` uses the CV text to generate better Indeed query options and then falls back to the built-in heuristic terms if Gemini is unavailable.
+
 ## Common Usage
 
 Edit the configuration section at the top of the script before running.
@@ -33,9 +43,13 @@ Edit the configuration section at the top of the script before running.
 Common values to change:
 
 - `SEARCH_QUERY`
+- `SEARCH_QUERIES`
+- `TARGET_URL`
 - `LOCATION`
 - `MAX_RESULTS`
 - `HEADLESS`
+- `RESUME_PDF`
+- `USE_GEMINI_QUERY_GENERATION`
 
 Run any script like this:
 
@@ -64,6 +78,10 @@ Notes:
 
 - Falls back to CSV if `service_account.json` is missing or empty.
 - If you want Google Sheets export, add a valid service account JSON file.
+- The scraper keeps the Google Maps phone when available, normalizes it, and also checks the business website plus common contact pages for public emails and extra phone numbers.
+- It now dedupes using the Maps URL first, then business metadata, and saves new leads continuously during long runs.
+- Website contact extraction is intentionally filtered so raw HTML asset names, tracking IDs, and long numeric blobs are less likely to be saved as emails or phone numbers.
+- You can now set multiple `SEARCH_QUERIES` in one run to combine several Google Maps searches into one deduped output file.
 
 ## 2. Indeed Without Profile
 
@@ -87,6 +105,31 @@ Notes:
 - Works only with the visible anonymous/search-result cards.
 - Indeed may redirect later pages to sign-in.
 - Full job descriptions are not reliable in this mode.
+
+## Website Crawler
+
+File:
+
+- `website_crawler_scraper.py`
+
+Run:
+
+```bash
+./.venv/bin/python website_crawler_scraper.py
+```
+
+Output:
+
+- `website_crawl_pages.csv`
+- `website_crawl_summary.json`
+- `website_crawler_scraper.log`
+
+Notes:
+
+- Set `TARGET_URL` at the top of the script, for example `https://zobsai.com`.
+- The crawler stays on internal routes for the same site and can optionally include subdomains.
+- It extracts public emails and phone numbers, page titles, meta descriptions, H1 text, and top keywords from visible page text.
+- `MAX_PAGES` controls the crawl depth cap for one run.
 
 ## 3. Indeed With Signed-In Brave Profile
 
@@ -116,12 +159,17 @@ Important config:
 - `BRAVE_USER_DATA_DIR`
 - `BRAVE_PROFILE_DIRECTORY`
 - `HEADLESS = False`
+- `RESUME_PDF`
+- `GEMINI_API_KEY` in `.env` or shell env
 
 Notes:
 
 - This mode is best when your Indeed login already exists in Brave.
 - If Indeed shows sign-in or verification in the opened Brave window, complete it there and let the script continue.
 - This is the best script in this folder for collecting real Indeed job descriptions.
+- The CSV now also includes `Public Emails`, `Public Phone Numbers`, and `Has Public Contact Info` extracted only from visible job-description text.
+- Contact extraction is intentionally conservative: it keeps recruiter-style contact info with nearby public contact hints like `email`, `call`, `whatsapp`, or `share resume`, and skips obvious no-reply or blocked-contact text.
+- With Gemini enabled, the script reads the resume, proposes role-specific Indeed queries, and still falls back to the local rules if the API call fails.
 
 ## 4. Naukri
 
